@@ -1,0 +1,120 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+	xmlns="http://www.mulesoft.org/schema/mule/core"
+	xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd">
+	<http:request-config name="HTTP_Request_configuration" doc:name="HTTP Request configuration" doc:id="afcaf6bc-885c-4a25-93c3-089a33a5f91d" basePath="/api">
+		<http:request-connection host="0.0.0.0" port="8085" />
+	</http:request-config>
+	<flow name="students-email-process-impl-apiFlow" doc:id="fa7b7f72-8c4a-4020-b1aa-4d283ef9a89e" >
+		<ee:transform doc:name="storing input data in a variable" doc:id="38b1d6de-2d64-42f0-b0dc-cf77fdb0970d" >
+			<ee:message >
+			</ee:message>
+			<ee:variables >
+				<ee:set-variable variableName="processInput" ><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-variable>
+			</ee:variables>
+		</ee:transform>
+		<foreach doc:name="For Each" doc:id="b73f4029-81d9-494b-8005-660c88b032b0" >
+			<ee:transform doc:name="applying the validation and storing values in each variables for each valiadations" doc:id="2475bd99-fea9-498d-91e2-23799fd6abab" >
+				<ee:message >
+				</ee:message>
+				<ee:variables >
+					<ee:set-variable variableName="branchValidation" ><![CDATA[%dw 2.0
+output application/json
+---
+if (payload.Branch =="ECE" or payload.Branch =="CSE" or payload.Branch =="EEE" or payload.Branch =="IT" or payload.Branch =="EIE") true else false]]></ee:set-variable>
+					<ee:set-variable variableName="finalResults" ><![CDATA[%dw 2.0
+output application/json
+---
+if (payload.FinalResult =="Fail" or payload.FinalResult =="Pass") true else false]]></ee:set-variable>
+					<ee:set-variable variableName="semisterValidation" ><![CDATA[%dw 2.0
+output application/json
+---
+if (payload.Semester =="1-1" or payload.Semester =="1-2" or payload.Semester =="2-1" or payload.Semester =="2-2" or payload.Semester =="3-1" or payload.Semester =="3-2" or payload.Semester =="4-1" or payload.Semester =="4-2") true else false]]></ee:set-variable>
+					<ee:set-variable variableName="gradesValidation" ><![CDATA[%dw 2.0
+output application/json
+---
+if (payload.Grade =="A" or payload.Grade =="B" or payload.Grade =="C" or payload.Grade =="D" or payload.Grade =="E") true else false]]></ee:set-variable>
+				</ee:variables>
+			</ee:transform>
+			<choice doc:name="Choice" doc:id="871e2234-f9ff-4a4b-9185-759841440d04" >
+				<when expression="#[((vars.branchValidation == true) and (vars.finalResults == true) and (vars.semisterValidation == true) and (vars.gradesValidation == true))]">
+					<ee:transform doc:name="storing the html data in tableinfo variable" doc:id="7d67703a-f67c-48e1-a970-83ea1800deb8" >
+						<ee:message >
+						</ee:message>
+						<ee:variables >
+							<ee:set-variable variableName="tableInfo" ><![CDATA[%dw 2.0
+output text/plain
+---
+"<table><br><tr><th>RollNo</th><th>StudentName</th><th>EmailId</th><th>University</th><th>College</th><th>BatchCode</th><th>Branch</th><th>Semester</th><th>Grade</th><th>FinalResult</th></tr><br>"
+++
+(([payload] map(
+    "<tr><td>" ++ ($.RollNo default "") ++ "</td>" ++
+    "<td>" ++ ($.StudentName default "") ++ "</td>" ++
+    "<td>" ++ ($.EmailId default "") ++ "</td>" ++
+    "<td>" ++ ($.University default "") ++ "</td>" ++
+    "<td>" ++ ($.College default "") ++ "</td>" ++
+    "<td>" ++ ($.BatchCode default "") ++ "</td>" ++
+    "<td>" ++ ($.Branch default "") ++ "</td>" ++
+    "<td>" ++ ($.Semester default "") ++ "</td>" ++
+    "<td>" ++ ($.Grade default "") ++ "</td>" ++
+    "<td>" ++ ($.FinalResult default "") ++ "</td></tr>"
+    )) joinBy "")
+++ "</table>"
+]]></ee:set-variable>
+						</ee:variables>
+					</ee:transform>
+					<http:request method="POST" doc:name="calling the system api to sent mail" doc:id="d109785c-5cc4-43b1-b52f-34c6bcfb98a0" config-ref="HTTP_Request_configuration" path="/studentmailsent" responseTimeout="18000">
+						<http:body ><![CDATA[#[output application/json
+---
+{
+	"payload":payload,
+	"tabledata": vars.tableinfo
+}]]]></http:body>
+					</http:request>
+					<ee:transform doc:name="Transform Message" doc:id="a14011da-8e7b-45a3-8ec1-c3943633caab" >
+						<ee:message >
+							<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+						</ee:message>
+					</ee:transform>
+				</when>
+				<otherwise >
+					<ee:transform doc:name="payload" doc:id="2b33f78a-2475-416b-a5e3-56a4893c1e68" >
+						<ee:message >
+							<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+						</ee:message>
+						<ee:variables >
+						</ee:variables>
+					</ee:transform>
+					<http:request method="POST" doc:name="calling the system api to insert data into DB" doc:id="19d333af-1b13-49d2-a818-c4cdf6870c88" config-ref="HTTP_Request_configuration" path="/studentdatanotification" responseTimeout="18000000">
+						<http:body ><![CDATA[#[output application/json
+---
+{
+	"payload":payload,
+	"TableData": vars.tableinfo
+}]]]></http:body>
+					</http:request>
+					<ee:transform doc:name="Transform Message" doc:id="3e0917ef-5541-4bdd-a66c-f8c9c716c4f2" >
+						<ee:message >
+							<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+						</ee:message>
+					</ee:transform>
+				</otherwise>
+			</choice>
+		</foreach>
+	</flow>
+</mule>
